@@ -19,6 +19,18 @@ bucket_name = 'print-mobile-production'
 [env.production.vars]
 Env_workplace = "production"
 
+# # # # # # # # # # # # # # # # # # # #
+# Env Dev
+
+# R2 Dev
+[[env.dev.r2_buckets]]
+binding = 'R2_printMobile'
+bucket_name = 'print-mobile-dev'
+
+# Var Dev
+[env.dev.vars]
+Env_workplace = "dev"
+
 
 # # # # # # # # # # # # # # # # # # # #
 # Env Dev Local
