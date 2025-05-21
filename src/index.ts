@@ -11,6 +11,13 @@ export default {
 
 		const Const_passwordAdmin = 'r89467290'
 
+		// Site: /test
+		if (Const_pathName.startsWith('/test')) {
+            return new Response(`Test: ${Parameter_env.Env_workplace}`, {
+                status: 200
+            })
+		}
+
 		// Site: /site/printMobile
 		if (Const_pathName.startsWith('/site/printMobile') || Const_pathName === '/') {
             return new Response(Html_helloWord, {
