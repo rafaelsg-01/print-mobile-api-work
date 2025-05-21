@@ -1,0 +1,33 @@
+
+name = "print-mobile-api-work"
+main = "./src/index.ts"
+compatibility_date = "2025-02-14"
+
+logpush = true
+[observability]
+enabled = true
+
+# # # # # # # # # # # # # # # # # # # #
+# Env Production
+
+# R2 Production
+[[env.production.r2_buckets]]
+binding = 'R2_printMobile'
+bucket_name = 'print-mobile-production'
+
+# Var Production
+[env.production.vars]
+Env_workplace = "production"
+
+
+# # # # # # # # # # # # # # # # # # # #
+# Env Dev Local
+
+# R2 Dev Local
+[[env.dev_local.r2_buckets]]
+binding = 'R2_printMobile'
+bucket_name = 'print-mobile-dev_local'
+
+# Var Dev Local
+[env.dev_local.vars]
+Env_workplace = "dev_local"
