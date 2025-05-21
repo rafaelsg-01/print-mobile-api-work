@@ -10,6 +10,10 @@ enabled = true
 # # # # # # # # # # # # # # # # # # # #
 # Env Production
 
+# Name Production
+[env.production]
+name = "print-mobile-api-work-production"
+
 # R2 Production
 [[env.production.r2_buckets]]
 binding = 'R2_printMobile'
@@ -21,6 +25,10 @@ Env_workplace = "production"
 
 # # # # # # # # # # # # # # # # # # # #
 # Env Dev
+
+# Name Dev
+[env.dev]
+name = "print-mobile-api-work-dev"
 
 # R2 Dev
 [[env.dev.r2_buckets]]
