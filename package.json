@@ -4,15 +4,21 @@
 	"private": true,
 	"scripts": {
 		"deploy": "wrangler deploy src/index.ts --env=production",
-		"dev": "wrangler dev --env=dev_local --port 8787 --persist-to=%USERPROFILE%/database-local/.wrangler/state",
+		"dev": "wrangler dev --env=dev_local --port 8787 --remote --persist-to=%USERPROFILE%/database-local/.wrangler/state",
 		"start": "wrangler dev",
 		"test": "vitest --silent=false --reporter=basic --disableConsoleIntercept",
 		"log-production": "npx wrangler tail print-mobile-api-work-production",
-		"log-dev": "npx wrangler tail print-mobile-api-work-dev"
+		"log-dev": "npx wrangler tail print-mobile-api-work-dev",
+		"block-log": "powershell -Command \"@('node_modules\\@cloudflare\\puppeteer\\lib\\esm\\puppeteer\\common\\Debug.js', 'node_modules\\@cloudflare\\puppeteer\\lib\\cjs\\puppeteer\\common\\Debug.js', 'node_modules\\@cloudflare\\puppeteer\\src\\common\\Debug.ts') | ForEach-Object { (Get-Content $_) -replace '\\(await importDebug\\(\\)\\)\\(prefix\\)\\(logArgs\\);', '//(await importDebug())(prefix)(logArgs);' | Set-Content $_ }\""
 	},
 	"devDependencies": {
-		"@cloudflare/workers-types": "^4.20250310.0",
+		"@cloudflare/playwright": "^0.0.10",
+		"@cloudflare/puppeteer": "^1.0.2",
+		"@cloudflare/workers-types": "^4.20250521.0",
 		"typescript": "^4.6.4",
 		"wrangler": "^4.16.0"
+	},
+	"dependencies": {
+		"jimp": "^0.22.12"
 	}
 }
