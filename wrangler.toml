@@ -2,6 +2,7 @@
 name = "print-mobile-api-work"
 main = "./src/index.ts"
 compatibility_date = "2025-02-14"
+compatibility_flags = [ "nodejs_compat_v2" ]
 
 logpush = true
 [observability]
@@ -18,9 +19,17 @@ name = "print-mobile-api-work-production"
 [[env.production.r2_buckets]]
 binding = 'R2_printMobile'
 bucket_name = 'print-mobile-production'
+preview_bucket_name = 'print-mobile-dev'
+
+# Browser Production
+[env.production.browser]
+binding = 'Browser_printMobile'
 
 # Var Production
 [env.production.vars]
+Env_linkFrontend = "https://print-mobile-api-work-production.projetobot.workers.dev"
+Env_linkBackend = "https://print-mobile-api-work-production.projetobot.workers.dev"
+
 Env_workplace = "production"
 
 # # # # # # # # # # # # # # # # # # # #
@@ -34,20 +43,41 @@ name = "print-mobile-api-work-dev"
 [[env.dev.r2_buckets]]
 binding = 'R2_printMobile'
 bucket_name = 'print-mobile-dev'
+preview_bucket_name = 'print-mobile-dev'
+
+# Browser Dev
+[env.dev.browser]
+binding = 'Browser_printMobile'
+
 
 # Var Dev
 [env.dev.vars]
+Env_linkFrontend = "https://print-mobile-api-work-dev.projetobot.workers.dev"
+Env_linkBackend = "https://print-mobile-api-work-dev.projetobot.workers.dev"
+
 Env_workplace = "dev"
 
 
 # # # # # # # # # # # # # # # # # # # #
 # Env Dev Local
 
+# Name Dev
+[env.dev_local]
+name = "print-mobile-api-work-dev-local"
+
 # R2 Dev Local
 [[env.dev_local.r2_buckets]]
 binding = 'R2_printMobile'
-bucket_name = 'print-mobile-dev_local'
+bucket_name = 'print-mobile-dev-local'
+preview_bucket_name = 'print-mobile-dev'
+
+# Browser Dev Local
+[env.dev_local.browser]
+binding = 'Browser_printMobile'
 
 # Var Dev Local
 [env.dev_local.vars]
+Env_linkFrontend = "http://127.0.0.1:8787"
+Env_linkBackend = "http://127.0.0.1:8787"
+
 Env_workplace = "dev_local"

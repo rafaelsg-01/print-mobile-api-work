@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Screenshot Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.0/jszip.min.js"></script>
+    <style>
+        body {
+            background-color: #f3f4f6;
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        .slide-up {
+            animation: slideUp 0.5s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .modal {
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+        }
+        .modal-hidden {
+            opacity: 0;
+            transform: scale(0.95);
+            pointer-events: none;
+        }
+        .modal-visible {
+            opacity: 1;
+            transform: scale(1);
+            pointer-events: auto;
+        }
+        .screenshot-preview {
+            transition: transform 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .screenshot-preview:hover {
+            transform: scale(1.05);
+        }
+        .disabled-btn {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center py-8">
+    <div class="container mx-auto px-4 max-w-4xl">
+        <h1 class="text-4xl font-bold text-center text-blue-800 mb-10 fade-in">Screenshot Generator</h1>
+        
+        <div id="admin-section" class="bg-white shadow-lg rounded-lg p-6 mb-10 slide-up">
+            <div class="mb-4">
+                <label for="adminPassword" class="block text-sm font-medium text-gray-700 mb-2">Admin Password</label>
+                <input type="password" id="adminPassword" class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 transition duration-300" placeholder="Enter admin password">
+            </div>
+            <div>
+                <label for="defaultUrl" class="block text-sm font-medium text-gray-700 mb-2">Website URL Default</label>
+                <input type="url" id="defaultUrl" class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 transition duration-300" placeholder="https://example.com">
+            </div>
+            <div class="mt-4">
+                <label for="batchSize" class="block text-sm font-medium text-gray-700 mb-2">Batch Size (default 4)</label>
+                <input type="number" id="batchSize" class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 transition duration-300" min="1" max="20" placeholder="4">
+            </div>
+            <div class="flex justify-between items-center mt-2">
+                <span></span>
+                <button id="toggle-prints-visibility" class="text-blue-700 underline hover:text-blue-900 transition">Ocultar todos os prints</button>
+            </div>
+        </div>
+
+        <div id="site-list" class="space-y-6">
+        </div>
+
+        <div class="flex justify-between mt-8">
+            <button id="add-site" class="bg-blue-700 text-white px-4 py-2 rounded-lg hover:bg-blue-800 transition duration-300">Add New Print</button>
+            <button id="generate-all" class="bg-blue-700 text-white px-4 py-2 rounded-lg hover:bg-blue-800 transition duration-300">Generate All Prints</button>
+            <button id="download-zip" class="bg-green-700 text-white px-4 py-2 rounded-lg hover:bg-green-800 transition duration-300">Download Zip</button>
+        </div>
+
+        <div id="results" class="mt-10">
+            <h2 class="text-2xl font-semibold text-blue-800 mb-6 fade-in">Generated Screenshots</h2>
+            <div id="screenshot-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+        </div>
+
+        <!-- Modal for viewing screenshots -->
+        <div id="modal" class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center modal-hidden">
+            <div class="bg-white rounded-lg p-6 max-w-3xl w-full">
+                <img id="modal-image" class="w-full max-h-[70vh] object-contain" src="">
+                <div class="flex justify-end space-x-4 mt-4">
+                    <button id="download-image" class="bg-blue-700 text-white px-4 py-2 rounded-lg hover:bg-blue-800 transition duration-300">Download</button>
+                    <button id="close-modal" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition duration-300">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const siteList = document.getElementById('site-list');
+        const addSiteBtn = document.getElementById('add-site');
+        const generateAllBtn = document.getElementById('generate-all');
+        const screenshotList = document.getElementById('screenshot-list');
+        const adminPasswordInput = document.getElementById('adminPassword');
+        const defaultUrlInput = document.getElementById('defaultUrl');
+        const modal = document.getElementById('modal');
+        const modalImage = document.getElementById('modal-image');
+        const closeModalBtn = document.getElementById('close-modal');
+        const downloadImageBtn = document.getElementById('download-image');
+        const togglePrintsBtn = document.getElementById('toggle-prints-visibility');
+        const batchSizeInput = document.getElementById('batchSize');
+        let siteCount = 1;
+        let isGenerating = false;
+
+        // Load from localStorage
+        function loadFromLocalStorage() {
+            const defaultScreen = {
+                "adminPassword": "",
+                "defaultUrl": "https://agend.day/cortefino",
+                "batchSize": 4,
+                "sites": [
+                    {
+                        "id": "1747905226010",
+                        "url": "https://agend.day/cortefino",
+                        "code": "// Home",
+                        "quality": "3",
+                        "enabled": true
+                    },
+                    {
+                        "id": "1747905231438",
+                        "url": "https://agend.day/cortefino",
+                        "code": "// Serviço\n(async () => {\n    function delay(ms) {\n      return new Promise(resolve => setTimeout(resolve, ms));\n    }\n\n    var Element_conteinerScroll = document.querySelector('#IdElement_visibleScreen');\n    var Element_h1 = Array.from(Element_conteinerScroll.querySelectorAll('h1')).find(\n      el => el.textContent.trim() === 'Serviços'\n    );\n\n    if (Element_h1) {\n      var Var_offsetTop = Element_h1.offsetTop;\n      Element_conteinerScroll.scrollTop = Var_offsetTop - 86;\n    }\n\n    await delay(2000);\n})();",
+                        "quality": "3",
+                        "enabled": true
+                    },
+                    {
+                        "id": "1747905241236",
+                        "url": "https://agend.day/cortefino",
+                        "code": "// Sobre\n(async () => {\n    function delay(ms) {\n      return new Promise(resolve => setTimeout(resolve, ms));\n    }\n\n    var Element_conteinerScroll = document.querySelector('#IdElement_visibleScreen');\n    var Element_h1 = Array.from(Element_conteinerScroll.querySelectorAll('h1')).find(\n      el => el.textContent.trim() === 'Sobre'\n    );\n\n    if (Element_h1) {\n      var Var_offsetTop = Element_h1.offsetTop;\n      Element_conteinerScroll.scrollTop = Var_offsetTop - 86;\n    }\n\n    await delay(2000);\n})();",
+                        "quality": "3",
+                        "enabled": true
+                    },
+                    {
+                        "id": "1747905257563",
+                        "url": "https://agend.day/cortefino",
+                        "code": "// Avaliações\n(async () => {\n    function delay(ms) {\n      return new Promise(resolve => setTimeout(resolve, ms));\n    }\n\n    var Element_conteinerScroll = document.querySelector('#IdElement_visibleScreen');\n    var Element_h1 = Array.from(Element_conteinerScroll.querySelectorAll('h1')).find(\n      el => el.textContent.trim() === 'Avaliações'\n    );\n\n    if (Element_h1) {\n      var Var_offsetTop = Element_h1.offsetTop;\n      Element_conteinerScroll.scrollTop = Var_offsetTop - 86;\n    }\n\n    await delay(2000);\n})();",
+                        "quality": "3",
+                        "enabled": true
+                    },
+                    {
+                        "id": "1747905801941",
+                        "url": "https://agend.day/cortefino",
+                        "code": "// Cabelo\n(async () => {\n    function delay(ms) {\n      return new Promise(resolve => setTimeout(resolve, ms));\n    }\n\n    var Element_conteinerScroll = document.querySelector('#IdElement_visibleScreen');\n    var Element_h1 = Array.from(Element_conteinerScroll.querySelectorAll('h1')).find(\n      el => el.textContent.trim() === 'Serviços'\n    );\n\n    if (Element_h1) {\n      var Var_offsetTop = Element_h1.offsetTop;\n      Element_conteinerScroll.scrollTop = Var_offsetTop - 86;\n    }\n\n    var Element_vo = Element_h1.parentElement?.parentElement;\n    var Element_quartoFilho = Element_vo?.children[3];\n    \n    // Clica no botão dentro da div\n    var Element_quartoFilhoButton = Element_quartoFilho?.querySelector('button');\n    Element_quartoFilhoButton?.click();\n\n    await delay(2000);\n})();",
+                        "quality": "3",
+                        "enabled": true
+                    },
+                    {
+                        "id": "1747908373149",
+                        "url": "https://agend.day/cortefino",
+                        "code": "// Funcionários\n(async () => {\n    function delay(ms) {\n      return new Promise(resolve => setTimeout(resolve, ms));\n    }\n\n    var Element_conteinerScroll = document.querySelector('#IdElement_visibleScreen');\n    var Element_h1 = Array.from(Element_conteinerScroll.querySelectorAll('h1')).find(\n      el => el.textContent.trim() === 'Serviços'\n    );\n    if (Element_h1) {\n      var Var_offsetTop = Element_h1.offsetTop;\n      Element_conteinerScroll.scrollTop = Var_offsetTop - 86;\n    };\n\n    var Element_vo = Element_h1.parentElement?.parentElement;\n    var Element_quartoFilho = Element_vo?.children[3];\n    var Element_quartoFilhoButton = Element_quartoFilho?.querySelector('button');\n    Element_quartoFilhoButton?.click();\n\n    await delay(2000);\n\n    var Element_conteinerModal = document.querySelector('[role=\"dialog\"]');\n    var Element_span = Array.from(Element_conteinerModal.querySelectorAll('span')).find(\n      el => el.textContent.trim() === 'Agendar agora'\n    );\n    console.log(Element_span?.parentElement?.click())\n\n    await delay(2000);\n\n    var Var_newUrl = new URL(window.location.href)\n    var isService = Var_newUrl.search.includes('s=')\n    var isProfessional = Var_newUrl.search.includes('p=')\n\n    if (isService && isProfessional) {\n        var Element_button = Array.from(document.querySelectorAll('span')).find(\n          el => el.textContent.trim() === 'Voltar'\n        );\n\n        Element_button.click()\n        await delay(2000);\n    }\n})();",
+                        "quality": "3",
+                        "enabled": true
+                    },
+                    {
+                        "id": "1747908594679",
+                        "url": "https://agend.day/cortefino",
+                        "code": "// Horários\n(async () => {\n    function delay(ms) {\n      return new Promise(resolve => setTimeout(resolve, ms));\n    }\n\n    var Element_conteinerScroll = document.querySelector('#IdElement_visibleScreen');\n    var Element_h1 = Array.from(Element_conteinerScroll.querySelectorAll('h1')).find(\n      el => el.textContent.trim() === 'Serviços'\n    );\n    if (Element_h1) {\n      var Var_offsetTop = Element_h1.offsetTop;\n      Element_conteinerScroll.scrollTop = Var_offsetTop - 86;\n    };\n\n    var Element_vo = Element_h1.parentElement?.parentElement;\n    var Element_quartoFilho = Element_vo?.children[3];\n    var Element_quartoFilhoButton = Element_quartoFilho?.querySelector('button');\n    Element_quartoFilhoButton?.click();\n\n    await delay(2000);\n\n    var Element_conteinerModal = document.querySelector('[role=\"dialog\"]');\n    var Element_span = Array.from(Element_conteinerModal.querySelectorAll('span')).find(\n      el => el.textContent.trim() === 'Agendar agora'\n    );\n    console.log(Element_span?.parentElement?.click())\n\n    await delay(2000);\n\n    var Var_newUrl = new URL(window.location.href)\n    var isService = Var_newUrl.search.includes('s=')\n    var isProfessional = Var_newUrl.search.includes('p=')\n\n    if (isService && isProfessional) {\n        var Element_button = Array.from(document.querySelectorAll('span')).find(\n          el => el.textContent.trim() === 'Voltar'\n        );\n\n        Element_button.click()\n        await delay(2000);\n    }\n\n    var Element_button = Array.from(document.querySelectorAll('span')).find(\n      el => el.textContent.trim() === 'Continuar'\n    );\n\n    Element_button.click()\n    await delay(2000);    \n})();",
+                        "quality": "3",
+                        "enabled": true
+                    },
+                    {
+                        "id": "1747922039188",
+                        "url": "https://agend.day/cortefino",
+                        "code": "// Finalização\ndocument.cookie = \"jwt_client=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJkYXRhIjp7ImNsaWVudF9pZCI6MSwiY2xpZW50X3V1aWQiOiIzNTcwOTQ1Yy00MzkxLTQwZjItYjc2Yi0zMmU1MDdjZjk1YjgiLCJuYW1lX2NsaWVudCI6IlJhZmFlbCBkYSBTaWx2YSIsIndoYXRzYXBwX2NsaWVudCI6IjU1MzE5ODk1MzA4ODAiLCJ3aGF0c2FwcF9ub192ZXJpZnlfY2xpZW50IjpudWxsLCJpc192ZXJpZnlfY2xpZW50Ijp0cnVlfSwiZXhwIjoxNzYzNDczNTMwLCJpYXQiOjE3NDc5MjE1MzB9.2v8J30BOarNaJu2rxOC4ze1ZxwMW6XJTUYxav-FJXfY; domain=agend.day; path=/; expires=Tue, 18 Nov 2025 13:45:30 GMT; SameSite=None; Secure\";\nlocation.reload();\n\n//#CUT#\n\n(async () => {\n    function delay(ms) {\n      return new Promise(resolve => setTimeout(resolve, ms));\n    }\n\n    var Element_conteinerScroll = document.querySelector('#IdElement_visibleScreen');\n    var Element_h1 = Array.from(Element_conteinerScroll.querySelectorAll('h1')).find(\n      el => el.textContent.trim() === 'Serviços'\n    );\n    if (Element_h1) {\n      var Var_offsetTop = Element_h1.offsetTop;\n      Element_conteinerScroll.scrollTop = Var_offsetTop - 86;\n    };\n\n    var Element_vo = Element_h1.parentElement?.parentElement;\n    var Element_quartoFilho = Element_vo?.children[3];\n    var Element_quartoFilhoButton = Element_quartoFilho?.querySelector('button');\n    Element_quartoFilhoButton?.click();\n\n    await delay(2000);\n\n    var Element_conteinerModal = document.querySelector('[role=\"dialog\"]');\n    var Element_span = Array.from(Element_conteinerModal.querySelectorAll('span')).find(\n      el => el.textContent.trim() === 'Agendar agora'\n    );\n    console.log(Element_span?.parentElement?.click())\n\n    await delay(2000);\n\n    var Var_newUrl = new URL(window.location.href)\n    var isService = Var_newUrl.search.includes('s=')\n    var isProfessional = Var_newUrl.search.includes('p=')\n\n    if (isService && isProfessional) {\n        var Element_button = Array.from(document.querySelectorAll('span')).find(\n          el => el.textContent.trim() === 'Voltar'\n        );\n\n        Element_button.click()\n        await delay(2000);\n    }\n\n    var Element_button = Array.from(document.querySelectorAll('span')).find(\n      el => el.textContent.trim() === 'Continuar'\n    );\n\n    Element_button.click()\n    await delay(2000);\n\n    var Element_button = Array.from(document.querySelectorAll('span')).find(\n      el => el.textContent.trim() === 'Continuar'\n    );\n\n    Element_button.click()\n    await delay(2000);\n\n    var Element_button = Array.from(document.querySelectorAll('span')).find(\n      el => el.textContent.trim() === 'Continuar'\n    );\n\n    Element_button.click()\n    await delay(2000);\n})();",
+                        "quality": "3",
+                        "enabled": true
+                    }
+                ]
+            }
+            const savedData = localStorage.getItem('screenshotGeneratorData') || JSON.stringify(defaultScreen);
+            if (savedData) {
+                const { adminPassword, defaultUrl, sites, batchSize } = JSON.parse(savedData);
+                adminPasswordInput.value = adminPassword || '';
+                defaultUrlInput.value = defaultUrl || '';
+                batchSizeInput.value = batchSize || 4;
+                siteList.innerHTML = '';
+                siteCount = 0;
+                sites.forEach(site => addSiteEntry(site.url, site.code, site.quality, site.enabled, site.id));
+            }
+            const printsVisible = localStorage.getItem('printsVisible') !== 'false';
+            setPrintsVisibility(printsVisible);
+        }
+
+        // Save to localStorage
+        function saveToLocalStorage() {
+            const sites = Array.from(document.querySelectorAll('.site-entry')).map(entry => ({
+                id: entry.dataset.id,
+                url: entry.querySelector('.site-url').value,
+                code: entry.querySelector('.site-code').value,
+                quality: entry.querySelector('.site-quality').value,
+                enabled: entry.querySelector('.toggle-enabled').checked
+            }));
+            localStorage.setItem('screenshotGeneratorData', JSON.stringify({
+                adminPassword: adminPasswordInput.value,
+                defaultUrl: defaultUrlInput.value,
+                batchSize: parseInt(batchSizeInput.value) || 4,
+                sites
+            }));
+        }
+
+        // Sync all site URLs with default URL
+        function syncSiteUrls() {
+            const defaultUrl = defaultUrlInput.value;
+            document.querySelectorAll('.site-url').forEach(input => {
+                input.value = defaultUrl;
+            });
+            saveToLocalStorage();
+        }
+
+        // Add new site entry
+        function addSiteEntry(url = '', code = '', quality = 3, enabled = true, id = Date.now()) {
+            siteCount++;
+            const entry = document.createElement('div');
+            entry.className = 'site-entry bg-white shadow-lg rounded-lg p-6 slide-up';
+            entry.dataset.id = id;
+            entry.innerHTML = `
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-semibold text-blue-800">Print ${siteCount}</h2>
+                    <label class="flex items-center space-x-2">
+                        <input type="checkbox" class="toggle-enabled h-5 w-5 text-blue-600 focus:ring-blue-600" ${enabled ? 'checked' : ''}>
+                        <span class="text-sm text-gray-600">Enable</span>
+                    </label>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Website URL</label>
+                        <input type="url" class="site-url w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 transition duration-300" placeholder="https://example.com" value="${url}">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">User Code (Optional)</label>
+                        <textarea class="site-code w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 transition duration-300" rows="4" placeholder="Enter JavaScript code">${code}</textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Quality (1-10)</label>
+                        <input type="number" class="site-quality w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 transition duration-300" min="1" max="10" value="${quality}">
+                    </div>
+                    <button class="generate-single bg-blue-700 text-white px-4 py-2 rounded-lg hover:bg-blue-800 transition duration-300 w-full">Generate Individual Print</button>
+                    <button class="remove-site bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition duration-300 w-full mt-2">Remover</button>
+                </div>
+            `;
+            siteList.appendChild(entry);
+            entry.querySelector('.generate-single').addEventListener('click', () => generateSinglePrint(entry));
+            entry.querySelectorAll('input, textarea').forEach(input => input.addEventListener('input', saveToLocalStorage));
+            entry.querySelector('.remove-site').addEventListener('click', () => {
+                entry.remove();
+                saveToLocalStorage();
+            });
+            saveToLocalStorage();
+        }
+
+        // Toggle button states
+        function toggleButtons(disabled, generating = false) {
+            isGenerating = disabled;
+            const buttons = document.querySelectorAll('.generate-single, .remove-site, #generate-all, #add-site, #download-zip');
+            buttons.forEach(btn => {
+                btn.disabled = disabled;
+                btn.classList.toggle('disabled-btn', disabled);
+                if (btn.id === 'generate-all') {
+                    btn.textContent = generating ? 'Generating...' : 'Generate All Prints';
+                } else if (btn.classList.contains('generate-single')) {
+                    btn.textContent = generating ? 'Generating...' : 'Generate Individual Print';
+                } else if (btn.classList.contains('remove-site')) {
+                    btn.textContent = generating ? 'Generating...' : 'Remover';
+                }
+            });
+        }
+
+        // Generate single print
+        async function generateSinglePrint(entry) {
+            if (isGenerating) return;
+            toggleButtons(true, true);
+            const url = entry.querySelector('.site-url').value;
+            const code = entry.querySelector('.site-code').value;
+            const quality = entry.querySelector('.site-quality').value;
+            const enabled = entry.querySelector('.toggle-enabled').checked;
+            const adminPassword = adminPasswordInput.value;
+
+            if (!enabled) {
+                toggleButtons(false);
+                return;
+            }
+            if (!url || !adminPassword) {
+                alert('Please fill in the URL and Admin Password');
+                toggleButtons(false);
+                return;
+            }
+
+            const id = entry.dataset.id;
+            try {
+                const response = await fetch('/api/private/generate-print-mobile?adminPassword=' + encodeURIComponent(adminPassword), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify([{ urlSite: url, userCode: code || undefined, quality: parseInt(quality) }])
+                });
+                const data = await response.json();
+                updateScreenshots([{ photoArray: data.photoArray, id }]);
+            } catch (error) {
+                alert('Error generating screenshot: ' + error.message);
+            } finally {
+                toggleButtons(false);
+            }
+        }
+
+        // Generate all prints
+        // 4 de uma vez
+        async function generateAllPrints() {
+            if (isGenerating) return
+            toggleButtons(true, true)
+
+            const entries = Array.from(document.querySelectorAll('.site-entry'))
+            const results = []
+            const batchSize = parseInt(batchSizeInput.value) || 4;
+
+            const createRequest = async (entry) => {
+                const url = entry.querySelector('.site-url').value
+                const code = entry.querySelector('.site-code').value
+                const quality = entry.querySelector('.site-quality').value
+                const enabled = entry.querySelector('.toggle-enabled').checked
+                const adminPassword = adminPasswordInput.value
+
+                if (!enabled || !url) return null
+
+                const id = entry.dataset.id
+                try {
+                    const response = await fetch('/api/private/generate-print-mobile?adminPassword=' + encodeURIComponent(adminPassword), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify([{ urlSite: url, userCode: code || undefined, quality: parseInt(quality) }])
+                    })
+                    const data = await response.json()
+                    return { photoArray: data.photoArray, id }
+                } catch (error) {
+                    alert(`Error generating screenshot for Print ${id}: ${error.message}`)
+                    return null
+                }
+            }
+
+            for (let i = 0; i < entries.length; i += batchSize) {
+                const batch = entries.slice(i, i + batchSize)
+                const batchResults = await Promise.all(batch.map(createRequest))
+                results.push(...batchResults.filter(r => r))
+            }
+
+            updateScreenshots(results)
+            toggleButtons(false)
+        }
+
+        // Update screenshot display
+        function updateScreenshots(results) {
+            // Ordena os resultados com base no "order"
+            results.sort((a, b) => {
+                const orderA = Number(a.id.slice(5).replace(/\D/g, '')) || 1;
+                const orderB = Number(b.id.slice(5).replace(/\D/g, '')) || 1;
+                return orderA - orderB;
+            });
+
+            results.forEach((result, index) => {
+                const existing = document.querySelector(`[data-id="${result.id}"]`);
+                const containerId = `screenshot-${result.id}`;
+
+                // Remove imagem antiga com mesmo ID, se houver
+                const old = document.getElementById(containerId);
+                if (old) old.remove();
+
+                const container = document.createElement('div');
+                const order = (Number(result.id.slice(5).replace(/\D/g, '')) || 1)
+                container.className = 'screenshot-preview bg-white p-4 rounded-lg shadow-lg';
+                container.id = containerId;
+                container.style.order = order
+                container.innerHTML = `
+                    <h3 class="text-lg font-semibold text-blue-800 mb-2">Print ${index + 1}</h3>
+                    <img src="${result.photoArray[0]}" class="w-full h-32 object-cover rounded-lg mb-2">
+                    <button class="view-screenshot bg-blue-700 text-white px-3 py-1 rounded-lg hover:bg-blue-800 transition duration-300 w-full">View</button>
+                    <button class="download-screenshot bg-blue-700 text-white px-3 py-1 rounded-lg hover:bg-blue-800 transition duration-300 w-full mt-2">Download</button>
+                `;
+                screenshotList.appendChild(container);
+                container.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('download-screenshot')) {
+                        const link = document.createElement('a');
+                        link.href = result.photoArray[0];
+                        link.download = `print_${index + 1}.png`;
+                        link.click();
+                    } else {
+                        showModal(result.photoArray[0], result.id);
+                    }
+                });
+            });
+        }
+
+        // Show modal with screenshot
+        function showModal(imageSrc, index) {
+            modalImage.src = imageSrc;
+            downloadImageBtn.onclick = () => {
+                const link = document.createElement('a');
+                link.href = imageSrc;
+                link.download = `print_${index}.png`;
+                link.click();
+            };
+            modal.classList.remove('modal-hidden');
+            modal.classList.add('modal-visible');
+        }
+
+        // Gerenciar visibilidade dos prints
+        function setPrintsVisibility(visible) {
+            const entries = document.querySelectorAll('.site-entry');
+            entries.forEach(entry => {
+                entry.style.display = visible ? '' : 'none';
+            });
+            togglePrintsBtn.textContent = visible ? 'Ocultar todos os prints' : 'Mostrar todos os prints';
+            localStorage.setItem('printsVisible', visible ? 'true' : 'false');
+        }
+
+        // Alternar visibilidade
+        togglePrintsBtn.addEventListener('click', () => {
+            const currentlyVisible = localStorage.getItem('printsVisible') !== 'false';
+            setPrintsVisibility(!currentlyVisible);
+        });
+
+        // Close modal
+        closeModalBtn.addEventListener('click', () => {
+            modal.classList.remove('modal-visible');
+            modal.classList.add('modal-hidden');
+        });
+
+        // Event listeners
+        addSiteBtn.addEventListener('click', () => addSiteEntry(defaultUrlInput.value));
+        generateAllBtn.addEventListener('click', generateAllPrints);
+        adminPasswordInput.addEventListener('input', saveToLocalStorage);
+        batchSizeInput.addEventListener('input', saveToLocalStorage);
+        defaultUrlInput.addEventListener('input', () => {
+            syncSiteUrls();
+            saveToLocalStorage();
+        });
+
+        // Initialize
+        loadFromLocalStorage();
+        if (siteCount === 0) addSiteEntry();
+
+        document.getElementById('download-zip').addEventListener('click', async () => {
+            const downloadBtn = document.getElementById('download-zip');
+            const containers = document.querySelectorAll('#screenshot-list > div');
+            if (!containers.length) {
+                alert('Nenhum print gerado ainda.');
+                return;
+            }
+
+            toggleButtons(true, true);
+            downloadBtn.textContent = 'Downloading...';
+
+            try {
+                const zip = new JSZip();
+                const name = new URL(defaultUrlInput.value || 'https://test.com/default').pathname.replace(/^\/|\/$/g, '')
+                const folder = zip.folder(`${name}_prints`);
+
+                for (let i = 0; i < containers.length; i++) {
+                    const container = containers[i];
+                    const img = container.querySelector('img');
+                    if (!img) continue;
+                    const h3 = img.previousElementSibling
+
+                    try {
+                        const response = await fetch(img.src);
+                        const blob = await response.blob();
+                        folder.file(`${h3.textContent.toLowerCase().replace(/\s+/g, '_')}.png`, blob);
+                    } catch (err) {
+                        console.error(`Erro ao baixar imagem ${h3.textContent.toLowerCase().replace(/\s+/g, '_')}:`, err);
+                    }
+                }
+
+                const content = await zip.generateAsync({ type: 'blob' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(content);
+                link.download = `${name}_prints.zip`;
+                console.log(link)
+                link.click();
+            } catch (error) {
+                alert('Erro ao gerar o zip: ' + error.message);
+            } finally {
+                toggleButtons(false);
+                downloadBtn.textContent = 'Download Zip';
+            }
+        });
+    </script>
+</body>
+</html>
