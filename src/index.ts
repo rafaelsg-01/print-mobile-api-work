@@ -53,7 +53,7 @@ export default {
 
 				if (Const_allowedBrowserAcquisitions === 0) {
 					console.log('WARNING [Const_allowedBrowserAcquisitions === 0] No browser available')
-					return new Response('WARNING [Const_allowedBrowserAcquisitions === 0] No browser available', {status: 503})
+					return new Response('WARNING [Const_allowedBrowserAcquisitions === 0] No browser available', {status: 504})
 				}
 
 				const Const_maxConcurrent = Const_allowedBrowserAcquisitions
@@ -71,25 +71,54 @@ export default {
 							isLandscape: false
 						})
 
-						if (Const_item.userCode) {
-							await Const_page.evaluate((Parameter_code) => {
-								const Const_newFunction = new Function(Parameter_code)
-								Const_newFunction()
-							}, Const_item.userCode)
+						if (Const_item.userCode?.split('//#CUT#')[0]) {
+							await Const_page.evaluate(async (Parameter_code) => {
+								await eval(Parameter_code)
+							}, Const_item.userCode?.split('//#CUT#')[0])
 						}
 
-						const Const_print = await Const_page.screenshot({ type: 'png' })
+						if (Const_item.userCode?.split('//#CUT#')[1]) {
+                            await Const_page.reload()
+
+							await Const_page.evaluate(async (Parameter_code) => {
+								await eval(Parameter_code)
+							}, Const_item.userCode?.split('//#CUT#')[1])
+						}
+
+						const Const_printArrayBuffer = await Const_page.screenshot({ type: 'png' })
 						await Const_page.close()
 
+						// Add template mobile
+        				const Const_printJimp = await Jimp.read(Const_printArrayBuffer)
+
+						const Const_templateR2 = await Parameter_env.R2_printMobile.get('template/full-template2-apple-iphone-16-pro-max-2024.png')
+						const Const_templateArrayBuffer = await Const_templateR2?.arrayBuffer()
+        				const Const_templateJimp = await Jimp.read(Const_templateArrayBuffer)
+
+						const Const_modelPhotoWidth = Const_templateJimp.getWidth()
+						const Const_modelPhotoHeight = Const_templateJimp.getHeight()
+						const Const_backgroundPhotoJimp = await Jimp.read(Const_modelPhotoWidth, Const_modelPhotoHeight, 0)
+
+						const Const_printWidthNew = 1323
+						const Const_printHeightNew = 2694
+						Const_printJimp.resize(Const_printWidthNew, Const_printHeightNew)
+
+						Const_backgroundPhotoJimp.blit(Const_printJimp, 261, 341)
+						Const_backgroundPhotoJimp.blit(Const_templateJimp, 0, 0)
+
+						const Const_backgroundPhotoArrayBuffer = await Const_backgroundPhotoJimp.getBufferAsync(Jimp.MIME_PNG)
+
 						const Const_lastNameUrlSite = Const_item.urlSite.replace(/\/$/, '').split('/').pop() || 'default'
-						const Const_nameFileR2 = `/${Const_lastNameUrlSite}/${crypto.randomUUID()}.png`
+						const Const_nameFileR2 = `${Const_lastNameUrlSite}/${crypto.randomUUID()}.png`
+
+						//a = Const_backgroundPhotoArrayBuffer
 						const Const_r2Option = {
 							httpMetadata: {
 								contentType: 'image/png',
 							}
 						}
 
-						const Const_r2ResultPut = await Parameter_env.R2_printMobile.put(Const_nameFileR2, Const_print, Const_r2Option)
+						const Const_r2ResultPut = await Parameter_env.R2_printMobile.put(Const_nameFileR2, Const_backgroundPhotoArrayBuffer, Const_r2Option)
 						if (!Const_r2ResultPut) {
 							console.log('WARNING [!Const_r2ResultPut] Error uploading to R2')
 							throw new Error('WARNING [!Const_r2ResultPut] Error uploading to R2')
@@ -133,6 +162,17 @@ export default {
 						'Access-Control-Allow-Origin': '*',
 					}
 				})
+
+				// return buffer PNG
+				/* return new Response(a, {
+					status: 200,
+					headers: {
+						'Content-Type': 'image/png',
+						'Content-Disposition': `attachment; filename="print-mobile.png"`,
+						'Cache-Control': 'no-cache',
+						'Access-Control-Allow-Origin': '*',
+					}
+				}) */
 			} catch (error) {
 				console.log('ERRO [catch] Erro in /api/private/generate-print-mobile', error)
 				return new Response('ERRO [catch] Erro in /api/private/generate-print-mobile', {status: 500})
@@ -150,7 +190,7 @@ export default {
 					return new Response('WARNING [!Const_path] Missing path 2', {status: 400})
 				}
 
-				const Const_r2ResultGet = await Parameter_env.R2_printMobile.get(Const_path)
+				const Const_r2ResultGet = await Parameter_env.R2_printMobile.get(Const_path.replace(/^\/?/, ''))
 
 				if (!Const_r2ResultGet) {
 					console.log('WARNING [!Const_file] File not found')

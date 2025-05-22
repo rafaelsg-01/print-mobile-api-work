@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Screenshot Generator</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.0/jszip.min.js"></script>
     <style>
         body {
             background-color: #f3f4f6;
@@ -62,6 +63,10 @@
                 <label for="defaultUrl" class="block text-sm font-medium text-gray-700 mb-2">Website URL Default</label>
                 <input type="url" id="defaultUrl" class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 transition duration-300" placeholder="https://example.com">
             </div>
+            <div class="mt-4">
+                <label for="batchSize" class="block text-sm font-medium text-gray-700 mb-2">Batch Size (default 4)</label>
+                <input type="number" id="batchSize" class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 transition duration-300" min="1" max="20" placeholder="4">
+            </div>
             <div class="flex justify-between items-center mt-2">
                 <span></span>
                 <button id="toggle-prints-visibility" class="text-blue-700 underline hover:text-blue-900 transition">Ocultar todos os prints</button>
@@ -69,36 +74,12 @@
         </div>
 
         <div id="site-list" class="space-y-6">
-            <div class="site-entry bg-white shadow-lg rounded-lg p-6 slide-up">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-xl font-semibold text-blue-800">Print 1</h2>
-                    <label class="flex items-center space-x-2">
-                        <input type="checkbox" class="toggle-enabled h-5 w-5 text-blue-600 focus:ring-blue-600" checked>
-                        <span class="text-sm text-gray-600">Enable</span>
-                    </label>
-                </div>
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Website URL</label>
-                        <input type="url" class="site-url w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 transition duration-300" placeholder="https://example.com">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">User Code (Optional)</label>
-                        <textarea class="site-code w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 transition duration-300" rows="4" placeholder="Enter JavaScript code"></textarea>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Quality (1-10)</label>
-                        <input type="number" class="site-quality w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 transition duration-300" min="1" max="10" value="5">
-                    </div>
-                    <button class="generate-single bg-blue-700 text-white px-4 py-2 rounded-lg hover:bg-blue-800 transition duration-300 w-full">Generate Individual Print</button>
-                    <button class="remove-site bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition duration-300 w-full mt-2">Remover</button>
-                </div>
-            </div>
         </div>
 
         <div class="flex justify-between mt-8">
             <button id="add-site" class="bg-blue-700 text-white px-4 py-2 rounded-lg hover:bg-blue-800 transition duration-300">Add New Print</button>
             <button id="generate-all" class="bg-blue-700 text-white px-4 py-2 rounded-lg hover:bg-blue-800 transition duration-300">Generate All Prints</button>
+            <button id="download-zip" class="bg-green-700 text-white px-4 py-2 rounded-lg hover:bg-green-800 transition duration-300">Download Zip</button>
         </div>
 
         <div id="results" class="mt-10">
@@ -130,16 +111,81 @@
         const closeModalBtn = document.getElementById('close-modal');
         const downloadImageBtn = document.getElementById('download-image');
         const togglePrintsBtn = document.getElementById('toggle-prints-visibility');
+        const batchSizeInput = document.getElementById('batchSize');
         let siteCount = 1;
         let isGenerating = false;
 
         // Load from localStorage
         function loadFromLocalStorage() {
-            const savedData = localStorage.getItem('screenshotGeneratorData');
+            const defaultScreen = {
+                "adminPassword": "",
+                "defaultUrl": "https://agend.day/cortefino",
+                "batchSize": 4,
+                "sites": [
+                    {
+                        "id": "1747905226010",
+                        "url": "https://agend.day/cortefino",
+                        "code": "// Home",
+                        "quality": "3",
+                        "enabled": true
+                    },
+                    {
+                        "id": "1747905231438",
+                        "url": "https://agend.day/cortefino",
+                        "code": "// Serviço\n(async () => {\n    function delay(ms) {\n      return new Promise(resolve => setTimeout(resolve, ms));\n    }\n\n    var Element_conteinerScroll = document.querySelector('#IdElement_visibleScreen');\n    var Element_h1 = Array.from(Element_conteinerScroll.querySelectorAll('h1')).find(\n      el => el.textContent.trim() === 'Serviços'\n    );\n\n    if (Element_h1) {\n      var Var_offsetTop = Element_h1.offsetTop;\n      Element_conteinerScroll.scrollTop = Var_offsetTop - 86;\n    }\n\n    await delay(2000);\n})();",
+                        "quality": "3",
+                        "enabled": true
+                    },
+                    {
+                        "id": "1747905241236",
+                        "url": "https://agend.day/cortefino",
+                        "code": "// Sobre\n(async () => {\n    function delay(ms) {\n      return new Promise(resolve => setTimeout(resolve, ms));\n    }\n\n    var Element_conteinerScroll = document.querySelector('#IdElement_visibleScreen');\n    var Element_h1 = Array.from(Element_conteinerScroll.querySelectorAll('h1')).find(\n      el => el.textContent.trim() === 'Sobre'\n    );\n\n    if (Element_h1) {\n      var Var_offsetTop = Element_h1.offsetTop;\n      Element_conteinerScroll.scrollTop = Var_offsetTop - 86;\n    }\n\n    await delay(2000);\n})();",
+                        "quality": "3",
+                        "enabled": true
+                    },
+                    {
+                        "id": "1747905257563",
+                        "url": "https://agend.day/cortefino",
+                        "code": "// Avaliações\n(async () => {\n    function delay(ms) {\n      return new Promise(resolve => setTimeout(resolve, ms));\n    }\n\n    var Element_conteinerScroll = document.querySelector('#IdElement_visibleScreen');\n    var Element_h1 = Array.from(Element_conteinerScroll.querySelectorAll('h1')).find(\n      el => el.textContent.trim() === 'Avaliações'\n    );\n\n    if (Element_h1) {\n      var Var_offsetTop = Element_h1.offsetTop;\n      Element_conteinerScroll.scrollTop = Var_offsetTop - 86;\n    }\n\n    await delay(2000);\n})();",
+                        "quality": "3",
+                        "enabled": true
+                    },
+                    {
+                        "id": "1747905801941",
+                        "url": "https://agend.day/cortefino",
+                        "code": "// Cabelo\n(async () => {\n    function delay(ms) {\n      return new Promise(resolve => setTimeout(resolve, ms));\n    }\n\n    var Element_conteinerScroll = document.querySelector('#IdElement_visibleScreen');\n    var Element_h1 = Array.from(Element_conteinerScroll.querySelectorAll('h1')).find(\n      el => el.textContent.trim() === 'Serviços'\n    );\n\n    if (Element_h1) {\n      var Var_offsetTop = Element_h1.offsetTop;\n      Element_conteinerScroll.scrollTop = Var_offsetTop - 86;\n    }\n\n    var Element_vo = Element_h1.parentElement?.parentElement;\n    var Element_quartoFilho = Element_vo?.children[3];\n    \n    // Clica no botão dentro da div\n    var Element_quartoFilhoButton = Element_quartoFilho?.querySelector('button');\n    Element_quartoFilhoButton?.click();\n\n    await delay(2000);\n})();",
+                        "quality": "3",
+                        "enabled": true
+                    },
+                    {
+                        "id": "1747908373149",
+                        "url": "https://agend.day/cortefino",
+                        "code": "// Funcionários\n(async () => {\n    function delay(ms) {\n      return new Promise(resolve => setTimeout(resolve, ms));\n    }\n\n    var Element_conteinerScroll = document.querySelector('#IdElement_visibleScreen');\n    var Element_h1 = Array.from(Element_conteinerScroll.querySelectorAll('h1')).find(\n      el => el.textContent.trim() === 'Serviços'\n    );\n    if (Element_h1) {\n      var Var_offsetTop = Element_h1.offsetTop;\n      Element_conteinerScroll.scrollTop = Var_offsetTop - 86;\n    };\n\n    var Element_vo = Element_h1.parentElement?.parentElement;\n    var Element_quartoFilho = Element_vo?.children[3];\n    var Element_quartoFilhoButton = Element_quartoFilho?.querySelector('button');\n    Element_quartoFilhoButton?.click();\n\n    await delay(2000);\n\n    var Element_conteinerModal = document.querySelector('[role=\"dialog\"]');\n    var Element_span = Array.from(Element_conteinerModal.querySelectorAll('span')).find(\n      el => el.textContent.trim() === 'Agendar agora'\n    );\n    console.log(Element_span?.parentElement?.click())\n\n    await delay(2000);\n\n    var Var_newUrl = new URL(window.location.href)\n    var isService = Var_newUrl.search.includes('s=')\n    var isProfessional = Var_newUrl.search.includes('p=')\n\n    if (isService && isProfessional) {\n        var Element_button = Array.from(document.querySelectorAll('span')).find(\n          el => el.textContent.trim() === 'Voltar'\n        );\n\n        Element_button.click()\n        await delay(2000);\n    }\n})();",
+                        "quality": "3",
+                        "enabled": true
+                    },
+                    {
+                        "id": "1747908594679",
+                        "url": "https://agend.day/cortefino",
+                        "code": "// Horários\n(async () => {\n    function delay(ms) {\n      return new Promise(resolve => setTimeout(resolve, ms));\n    }\n\n    var Element_conteinerScroll = document.querySelector('#IdElement_visibleScreen');\n    var Element_h1 = Array.from(Element_conteinerScroll.querySelectorAll('h1')).find(\n      el => el.textContent.trim() === 'Serviços'\n    );\n    if (Element_h1) {\n      var Var_offsetTop = Element_h1.offsetTop;\n      Element_conteinerScroll.scrollTop = Var_offsetTop - 86;\n    };\n\n    var Element_vo = Element_h1.parentElement?.parentElement;\n    var Element_quartoFilho = Element_vo?.children[3];\n    var Element_quartoFilhoButton = Element_quartoFilho?.querySelector('button');\n    Element_quartoFilhoButton?.click();\n\n    await delay(2000);\n\n    var Element_conteinerModal = document.querySelector('[role=\"dialog\"]');\n    var Element_span = Array.from(Element_conteinerModal.querySelectorAll('span')).find(\n      el => el.textContent.trim() === 'Agendar agora'\n    );\n    console.log(Element_span?.parentElement?.click())\n\n    await delay(2000);\n\n    var Var_newUrl = new URL(window.location.href)\n    var isService = Var_newUrl.search.includes('s=')\n    var isProfessional = Var_newUrl.search.includes('p=')\n\n    if (isService && isProfessional) {\n        var Element_button = Array.from(document.querySelectorAll('span')).find(\n          el => el.textContent.trim() === 'Voltar'\n        );\n\n        Element_button.click()\n        await delay(2000);\n    }\n\n    var Element_button = Array.from(document.querySelectorAll('span')).find(\n      el => el.textContent.trim() === 'Continuar'\n    );\n\n    Element_button.click()\n    await delay(2000);    \n})();",
+                        "quality": "3",
+                        "enabled": true
+                    },
+                    {
+                        "id": "1747922039188",
+                        "url": "https://agend.day/cortefino",
+                        "code": "// Finalização\ndocument.cookie = \"jwt_client=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJkYXRhIjp7ImNsaWVudF9pZCI6MSwiY2xpZW50X3V1aWQiOiIzNTcwOTQ1Yy00MzkxLTQwZjItYjc2Yi0zMmU1MDdjZjk1YjgiLCJuYW1lX2NsaWVudCI6IlJhZmFlbCBkYSBTaWx2YSIsIndoYXRzYXBwX2NsaWVudCI6IjU1MzE5ODk1MzA4ODAiLCJ3aGF0c2FwcF9ub192ZXJpZnlfY2xpZW50IjpudWxsLCJpc192ZXJpZnlfY2xpZW50Ijp0cnVlfSwiZXhwIjoxNzYzNDczNTMwLCJpYXQiOjE3NDc5MjE1MzB9.2v8J30BOarNaJu2rxOC4ze1ZxwMW6XJTUYxav-FJXfY; domain=agend.day; path=/; expires=Tue, 18 Nov 2025 13:45:30 GMT; SameSite=None; Secure\";\nlocation.reload();\n\n//#CUT#\n\n(async () => {\n    function delay(ms) {\n      return new Promise(resolve => setTimeout(resolve, ms));\n    }\n\n    var Element_conteinerScroll = document.querySelector('#IdElement_visibleScreen');\n    var Element_h1 = Array.from(Element_conteinerScroll.querySelectorAll('h1')).find(\n      el => el.textContent.trim() === 'Serviços'\n    );\n    if (Element_h1) {\n      var Var_offsetTop = Element_h1.offsetTop;\n      Element_conteinerScroll.scrollTop = Var_offsetTop - 86;\n    };\n\n    var Element_vo = Element_h1.parentElement?.parentElement;\n    var Element_quartoFilho = Element_vo?.children[3];\n    var Element_quartoFilhoButton = Element_quartoFilho?.querySelector('button');\n    Element_quartoFilhoButton?.click();\n\n    await delay(2000);\n\n    var Element_conteinerModal = document.querySelector('[role=\"dialog\"]');\n    var Element_span = Array.from(Element_conteinerModal.querySelectorAll('span')).find(\n      el => el.textContent.trim() === 'Agendar agora'\n    );\n    console.log(Element_span?.parentElement?.click())\n\n    await delay(2000);\n\n    var Var_newUrl = new URL(window.location.href)\n    var isService = Var_newUrl.search.includes('s=')\n    var isProfessional = Var_newUrl.search.includes('p=')\n\n    if (isService && isProfessional) {\n        var Element_button = Array.from(document.querySelectorAll('span')).find(\n          el => el.textContent.trim() === 'Voltar'\n        );\n\n        Element_button.click()\n        await delay(2000);\n    }\n\n    var Element_button = Array.from(document.querySelectorAll('span')).find(\n      el => el.textContent.trim() === 'Continuar'\n    );\n\n    Element_button.click()\n    await delay(2000);\n\n    var Element_button = Array.from(document.querySelectorAll('span')).find(\n      el => el.textContent.trim() === 'Continuar'\n    );\n\n    Element_button.click()\n    await delay(2000);\n\n    var Element_button = Array.from(document.querySelectorAll('span')).find(\n      el => el.textContent.trim() === 'Continuar'\n    );\n\n    Element_button.click()\n    await delay(2000);\n})();",
+                        "quality": "3",
+                        "enabled": true
+                    }
+                ]
+            }
+            const savedData = localStorage.getItem('screenshotGeneratorData') || JSON.stringify(defaultScreen);
             if (savedData) {
-                const { adminPassword, defaultUrl, sites } = JSON.parse(savedData);
+                const { adminPassword, defaultUrl, sites, batchSize } = JSON.parse(savedData);
                 adminPasswordInput.value = adminPassword || '';
                 defaultUrlInput.value = defaultUrl || '';
+                batchSizeInput.value = batchSize || 4;
                 siteList.innerHTML = '';
                 siteCount = 0;
                 sites.forEach(site => addSiteEntry(site.url, site.code, site.quality, site.enabled, site.id));
@@ -160,6 +206,7 @@
             localStorage.setItem('screenshotGeneratorData', JSON.stringify({
                 adminPassword: adminPasswordInput.value,
                 defaultUrl: defaultUrlInput.value,
+                batchSize: parseInt(batchSizeInput.value) || 4,
                 sites
             }));
         }
@@ -174,7 +221,7 @@
         }
 
         // Add new site entry
-        function addSiteEntry(url = '', code = '', quality = 5, enabled = true, id = Date.now()) {
+        function addSiteEntry(url = '', code = '', quality = 3, enabled = true, id = Date.now()) {
             siteCount++;
             const entry = document.createElement('div');
             entry.className = 'site-entry bg-white shadow-lg rounded-lg p-6 slide-up';
@@ -217,7 +264,7 @@
         // Toggle button states
         function toggleButtons(disabled, generating = false) {
             isGenerating = disabled;
-            const buttons = document.querySelectorAll('.generate-single, .remove-site, #generate-all, #add-site');
+            const buttons = document.querySelectorAll('.generate-single, .remove-site, #generate-all, #add-site, #download-zip');
             buttons.forEach(btn => {
                 btn.disabled = disabled;
                 btn.classList.toggle('disabled-btn', disabled);
@@ -268,37 +315,47 @@
         }
 
         // Generate all prints
+        // 4 de uma vez
         async function generateAllPrints() {
-            if (isGenerating) return;
-            toggleButtons(true, true);
-            const entries = document.querySelectorAll('.site-entry');
-            const requests = Array.from(entries).map(async (entry) => {
-                const url = entry.querySelector('.site-url').value;
-                const code = entry.querySelector('.site-code').value;
-                const quality = entry.querySelector('.site-quality').value;
-                const enabled = entry.querySelector('.toggle-enabled').checked;
-                const adminPassword = adminPasswordInput.value;
+            if (isGenerating) return
+            toggleButtons(true, true)
 
-                if (!enabled || !url) return null;
+            const entries = Array.from(document.querySelectorAll('.site-entry'))
+            const results = []
+            const batchSize = parseInt(batchSizeInput.value) || 4;
 
-                const id = entry.dataset.id;
+            const createRequest = async (entry) => {
+                const url = entry.querySelector('.site-url').value
+                const code = entry.querySelector('.site-code').value
+                const quality = entry.querySelector('.site-quality').value
+                const enabled = entry.querySelector('.toggle-enabled').checked
+                const adminPassword = adminPasswordInput.value
+
+                if (!enabled || !url) return null
+
+                const id = entry.dataset.id
                 try {
                     const response = await fetch('/api/private/generate-print-mobile?adminPassword=' + encodeURIComponent(adminPassword), {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify([{ urlSite: url, userCode: code || undefined, quality: parseInt(quality) }])
-                    });
-                    const data = await response.json();
-                    return { photoArray: data.photoArray, id };
+                    })
+                    const data = await response.json()
+                    return { photoArray: data.photoArray, id }
                 } catch (error) {
-                    alert(`Error generating screenshot for Print ${id}: ${error.message}`);
-                    return null;
+                    alert(`Error generating screenshot for Print ${id}: ${error.message}`)
+                    return null
                 }
-            });
+            }
 
-            const results = (await Promise.all(requests)).filter(r => r);
-            updateScreenshots(results);
-            toggleButtons(false);
+            for (let i = 0; i < entries.length; i += batchSize) {
+                const batch = entries.slice(i, i + batchSize)
+                const batchResults = await Promise.all(batch.map(createRequest))
+                results.push(...batchResults.filter(r => r))
+            }
+
+            updateScreenshots(results)
+            toggleButtons(false)
         }
 
         // Update screenshot display
@@ -382,6 +439,7 @@
         addSiteBtn.addEventListener('click', () => addSiteEntry(defaultUrlInput.value));
         generateAllBtn.addEventListener('click', generateAllPrints);
         adminPasswordInput.addEventListener('input', saveToLocalStorage);
+        batchSizeInput.addEventListener('input', saveToLocalStorage);
         defaultUrlInput.addEventListener('input', () => {
             syncSiteUrls();
             saveToLocalStorage();
@@ -390,6 +448,51 @@
         // Initialize
         loadFromLocalStorage();
         if (siteCount === 0) addSiteEntry();
+
+        document.getElementById('download-zip').addEventListener('click', async () => {
+            const downloadBtn = document.getElementById('download-zip');
+            const containers = document.querySelectorAll('#screenshot-list > div');
+            if (!containers.length) {
+                alert('Nenhum print gerado ainda.');
+                return;
+            }
+
+            toggleButtons(true, true);
+            downloadBtn.textContent = 'Downloading...';
+
+            try {
+                const zip = new JSZip();
+                const name = new URL(defaultUrlInput.value || 'https://test.com/default').pathname.replace(/^\/|\/$/g, '')
+                const folder = zip.folder(`${name}_prints`);
+
+                for (let i = 0; i < containers.length; i++) {
+                    const container = containers[i];
+                    const img = container.querySelector('img');
+                    if (!img) continue;
+                    const h3 = img.previousElementSibling
+
+                    try {
+                        const response = await fetch(img.src);
+                        const blob = await response.blob();
+                        folder.file(`${h3.textContent.toLowerCase().replace(/\s+/g, '_')}.png`, blob);
+                    } catch (err) {
+                        console.error(`Erro ao baixar imagem ${h3.textContent.toLowerCase().replace(/\s+/g, '_')}:`, err);
+                    }
+                }
+
+                const content = await zip.generateAsync({ type: 'blob' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(content);
+                link.download = `${name}_prints.zip`;
+                console.log(link)
+                link.click();
+            } catch (error) {
+                alert('Erro ao gerar o zip: ' + error.message);
+            } finally {
+                toggleButtons(false);
+                downloadBtn.textContent = 'Download Zip';
+            }
+        });
     </script>
 </body>
 </html>
