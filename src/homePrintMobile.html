@@ -146,7 +146,7 @@
                     {
                         "id": "1747905257563",
                         "url": "https://agend.day/cortefino",
-                        "code": "// Avaliações\n(async () => {\n    function delay(ms) {\n      return new Promise(resolve => setTimeout(resolve, ms));\n    }\n\n    var Element_conteinerScroll = document.querySelector('#IdElement_visibleScreen');\n    var Element_h1 = Array.from(Element_conteinerScroll.querySelectorAll('h1')).find(\n      el => el.textContent.trim() === 'Avaliações'\n    );\n\n    if (Element_h1) {\n      var Var_offsetTop = Element_h1.offsetTop;\n      Element_conteinerScroll.scrollTop = Var_offsetTop - 86;\n    }\n\n    await delay(2000);\n})();",
+                        "code": "// Avaliações\n(async () => {\n    function delay(ms) {\n      return new Promise(resolve => setTimeout(resolve, ms));\n    }\n\n    await delay(2000);\n\n    var Element_conteinerScroll = document.querySelector('#IdElement_visibleScreen');\n    var Element_h1 = Array.from(Element_conteinerScroll.querySelectorAll('h1')).find(\n      el => el.textContent.trim() === 'Avaliações'\n    );\n\n    if (Element_h1) {\n      var Var_offsetTop = Element_h1.offsetTop;\n      Element_conteinerScroll.scrollTop = Var_offsetTop - 86;\n    }\n\n    await delay(2000);\n})();",
                         "quality": "3",
                         "enabled": true
                     },
